@@ -156,13 +156,4 @@ def cluster_waveform_features(feature1, feature2, n_clusters=2):
     centroids, _ = kmeans(features, n_clusters)
     idx, _ = vq(features, centroids)
 
-    red_group_index_list = []
-    blue_group_index_list = []
-
-    for i in range(len(feature1)):
-        if idx[i] == 0:
-            red_group_index_list.append(i)
-        if idx[i] == 1:
-            blue_group_index_list.append(i)
-
     return idx
