@@ -165,4 +165,4 @@ def cluster_waveform_features(feature1, feature2, n_clusters=2):
         if idx[i] == 1:
             blue_group_index_list.append(i)
 
-    return idx, red_group_index_list, blue_group_index_list
+    return idx
