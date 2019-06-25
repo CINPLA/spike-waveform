@@ -43,7 +43,7 @@ def calculate_waveform_features(sptrs):
         half_width_list.append(np.array(half_width(wf, times)))
         peak_to_peak_list.append(np.array(peak_to_trough(wf, times)))
 
-    return half_width_list, peak_to_peak_list, average_firing_rate
+    return np.array(half_width_list), np.array(peak_to_peak_list), np.array(average_firing_rate)
 
 
 def interpolate(x, x0, x1, y0, y1):
@@ -165,7 +165,8 @@ def cluster_waveform_features(feature1, feature2, n_clusters=2):
     Returns
     -------
     idx : list of integers
-        for example when n_clusters is 2 containts 0s and 1s
+        for example when n_clusters is 2 containts 0s and 1s,
+        sorted according to the sum of means of features
 
     """
     if n_clusters < 2:
@@ -173,6 +174,15 @@ def cluster_waveform_features(feature1, feature2, n_clusters=2):
 
     features = np.stack(np.array([feature1, feature2]), axis=-1)
     centroids, _ = kmeans(features, n_clusters)
-    idx, _ = vq(features, centroids)
-
-    return idx
+    idxs, _ = vq(features, centroids)
+    ref_idxs = np.unique(idxs)
+    vals = []
+    for idx in ref_idxs:
+        avg1 = np.mean(feature1[idxs==idx])
+        avg2 = np.mean(feature2[idxs==idx])
+        vals.append(avg1 + avg2)
+    new_idxs = ref_idxs[np.argsort(vals)]
+    sort_idxs = np.zeros_like(idxs)
+    for new_idx, ref_idx in zip(new_idxs, ref_idxs):
+        sort_idxs[idxs==ref_idx] = new_idx
+    return sort_idxs

@@ -168,14 +168,14 @@ def test_calculate_waveform_features_attributeerror():
 
 
 def test_cluster_idx():
-    half_width_mean = [0.12322092, 0.30465815, 0.10547199, 0.17453667,
+    half_width_mean = np.array([0.12322092, 0.30465815, 0.10547199, 0.17453667,
                        0.38877204, 0.33574967, 0.39441669, 0.18472238,
                        0.37264262, 0.35206679, 0.15082797, 0.1389273,
-                       0.1955586]
-    peak_to_peak_mean = [0.23485475, 0.52386796, 0.15283638, 0.25323685,
+                       0.1955586])
+    peak_to_peak_mean = np.array([0.23485475, 0.52386796, 0.15283638, 0.25323685,
                          0.69555114, 0.58154619, 0.63756934, 0.29113269,
                          0.65643368, 0.55268553, 0.17157666, 0.27780348,
-                         0.1981366]
+                         0.1981366])
     idx = cluster_waveform_features(half_width_mean, peak_to_peak_mean,
                                     n_clusters=2)
     if idx[0] == 0:
@@ -209,14 +209,14 @@ def test_cluster_idx():
 
 
 def test_cluster_waveform_features_len_groups():
-    half_width_mean = [0.12322092, 0.30465815, 0.10547199, 0.17453667,
+    half_width_mean = np.array([0.12322092, 0.30465815, 0.10547199, 0.17453667,
                        0.38877204, 0.33574967, 0.39441669, 0.18472238,
                        0.37264262, 0.35206679, 0.15082797, 0.1389273,
-                       0.1955586]
-    peak_to_peak_mean = [0.23485475, 0.52386796, 0.15283638, 0.25323685,
+                       0.1955586])
+    peak_to_peak_mean = np.array([0.23485475, 0.52386796, 0.15283638, 0.25323685,
                          0.69555114, 0.58154619, 0.63756934, 0.29113269,
                          0.65643368, 0.55268553, 0.17157666, 0.27780348,
-                         0.1981366]
+                         0.1981366])
     idx = cluster_waveform_features(half_width_mean, peak_to_peak_mean)
     red_group, = np.where(idx == 0)
     blue_group, = np.where(idx == 1)
@@ -234,14 +234,14 @@ def test_cluster_waveform_features_len_groups():
 
 def test_cluster_waveform_features_content_groups():
     sptrs = [2, 3, 2, 2, 3, 3, 3, 2, 3, 3, 2, 2, 2]
-    half_width_mean = [0.12322092, 0.30465815, 0.10547199, 0.17453667,
+    half_width_mean = np.array([0.12322092, 0.30465815, 0.10547199, 0.17453667,
                        0.38877204, 0.33574967, 0.39441669, 0.18472238,
                        0.37264262, 0.35206679, 0.15082797, 0.1389273,
-                       0.1955586]
-    peak_to_peak_mean = [0.23485475, 0.52386796, 0.15283638, 0.25323685,
+                       0.1955586])
+    peak_to_peak_mean = np.array([0.23485475, 0.52386796, 0.15283638, 0.25323685,
                          0.69555114, 0.58154619, 0.63756934, 0.29113269,
                          0.65643368, 0.55268553, 0.17157666, 0.27780348,
-                         0.1981366]
+                         0.1981366])
     idx = cluster_waveform_features(half_width_mean, peak_to_peak_mean)
     red_group, = np.where(idx == 0)
     blue_group, = np.where(idx == 1)
