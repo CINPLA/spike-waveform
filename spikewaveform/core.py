@@ -1,21 +1,17 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import scipy
 from scipy.cluster.vq import kmeans, vq
 
 
-def calculate_waveform_features(sptrs, calc_all_spikes=False):
+def calculate_waveform_features(sptrs):
     """Calculates waveform features for spiketrains; full-width half-maximum
     (half width) and minimum-to-maximum peak width (peak-to-peak width) for
-    mean spike, and average firing rate. If calc_all_spikes is True it also
-    calculates half width and peak-to-peak width for all the single spikes in
-    each of the spiketrains.
+    mean spike, and average firing rate.
 
     Parameters
     ----------
     sptrs : list
         a list of neo spiketrains
-    calc_all_spikes : bool
-        returns half_width_all_spikes and peak_to_peak_all_spikes if True
 
     Returns
     ----------
@@ -25,12 +21,6 @@ def calculate_waveform_features(sptrs, calc_all_spikes=False):
         minimum-to-maximum peak width (in ms) for mean spike of each spiketrain
     average_firing_rate : list of floats
         average firing rate (in Hz) for each spiketrain
-    half_width_all_spikes : list of arrays with floats
-        if calc_all_spikes is True, full-width half-maximum (in ms) for every
-        single spike in each spiketrain
-    peak_to_peak_all_spikes : list of arrays with floats
-        if calc_all_spikes is True, minimum-to-maximum peak width (in ms) for
-        every single spike in each spiketrain
     """
     for sptr in sptrs:
         if not hasattr(sptr.waveforms, 'shape'):
@@ -39,21 +29,26 @@ def calculate_waveform_features(sptrs, calc_all_spikes=False):
 
     average_firing_rate = calculate_average_firing_rate(sptrs)
 
-    stime = np.arange(sptrs[0].waveforms.shape[2], dtype=np.float32) /\
+    times = np.arange(sptrs[0].waveforms.shape[2], dtype=np.float32) /\
         sptrs[0].sampling_rate
-    stime = stime.rescale('ms')
 
     half_width_list = []
     peak_to_peak_list = []
     for i in range(len(sptrs)):
-        mean_wf = np.mean(sptrs[i].waveforms, axis=0)
+        mean_wf = np.mean(sptrs[i].waveforms, axis=0).magnitude
         max_amplitude_channel = np.argmin(mean_wf.min(axis=1))
         wf = mean_wf[max_amplitude_channel, :]
 
-        half_width_list.append(np.array(half_width(wf, stime)))
-        peak_to_peak_list.append(np.array(peak_to_trough(wf)))
+        half_width_list.append(np.array(half_width(wf, times)))
+        peak_to_peak_list.append(np.array(peak_to_trough(wf, times)))
 
-    return half_width_mean, peak_to_peak_mean, average_firing_rate
+    return half_width_list, peak_to_peak_list, average_firing_rate
+
+
+def interpolate(x, x0, x1, y0, y1):
+    p = sorted([x0, x1])
+    assert p[0] < x and x < p[1], 'x not between x0 and x1'
+    return y0 + (x - x0) * ((y1 - y0) / (x1 - x0))
 
 
 def half_width(wf, times):
@@ -71,16 +66,23 @@ def half_width(wf, times):
     half_width : float
         full-width half-maximum
     """
-    index_min = np.argmin(wf)
+    throughs,_ = scipy.signal.find_peaks(-wf)
+    index_min = throughs[np.argmin(wf[throughs])]
     half_amplitude = wf[index_min] * 0.5
-    half_wf = np.abs(wf - half_amplitude)
+    half_wf = wf - half_amplitude
     # there might be multiple intersections, we take the closest to the peak
-    p1_idxs, = np.where(half_wf[:index_min] < 1e-5)
-    p1 = np.max(p1_idxs)
+    shifts_1 = np.diff(half_wf[:index_min] > 0)
+    shifts_1_idxs, = np.where(shifts_1 == 1)
+    p1 = shifts_1_idxs.max()
 
-    p2_idxs, = np.where(half_wf[index_min:] < 1e-5)
-    p2 = index_min + np.min(p2_idxs)
-    return times[p2] - times[p1]
+    t1 = interpolate(0, half_wf[p1], half_wf[p1 + 1], times[p1], times[p1 + 1])
+
+    shifts_2 = np.diff(half_wf[index_min:] > 0)
+    shifts_2_idxs, = np.where(shifts_2 == 1)
+    p2 = shifts_2_idxs.min() + index_min
+
+    t2 = interpolate(0, half_wf[p2], half_wf[p2 + 1], times[p2], times[p2 + 1])
+    return t2 - t1
 
 
 def peak_to_trough(wf, times):
@@ -99,8 +101,10 @@ def peak_to_trough(wf, times):
     peak_to_trough : float
         minimum-to-maximum peak width
     """
-    index_min = np.argmin(wf)
-    index_max = index_min + np.argmax(wf[index_min:])
+    throughs,_ = scipy.signal.find_peaks(-wf)
+    index_min = throughs[np.argmin(wf[throughs])]
+    peaks,_ = scipy.signal.find_peaks(wf[index_min:])
+    index_max = np.min(peaks) + index_min # first peak after through
     return times[index_max] - times[index_min]
 
 
@@ -121,7 +125,8 @@ def calculate_average_firing_rate(sptrs):
     for sptr in sptrs:
         nr_spikes = sptr.waveforms.shape[0]
         dt = sptr.t_stop - sptr.t_start
-        average_firing_rate.append(nr_spikes/dt)
+        rate = (nr_spikes/dt).rescale('Hz').magnitude
+        average_firing_rate.append(rate)
     return average_firing_rate
 
 
