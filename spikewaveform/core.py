@@ -41,71 +41,67 @@ def calculate_waveform_features(sptrs, calc_all_spikes=False):
 
     stime = np.arange(sptrs[0].waveforms.shape[2], dtype=np.float32) /\
         sptrs[0].sampling_rate
-    stime.units = 'ms'
+    stime = stime.rescale('ms')
 
-    mean_spikes_list = []
-    all_spikes_list = []
+    half_width_list = []
+    peak_to_peak_list = []
     for i in range(len(sptrs)):
         mean_wf = np.mean(sptrs[i].waveforms, axis=0)
         max_amplitude_channel = np.argmin(mean_wf.min(axis=1))
         wf = mean_wf[max_amplitude_channel, :]
-        mean_spikes_list.append(wf)
-        if calc_all_spikes is True:
-            wf2 = sptrs[i].waveforms[:, max_amplitude_channel, :]
-            all_spikes_list.append(wf2)
-    mean_spikes_list2 = [np.array(mean_spikes_list)]
-    hw_list, ptp_list = calculate_spike_widths(mean_spikes_list2, stime)
-    half_width_mean = hw_list[0]
-    peak_to_peak_mean = ptp_list[0]
 
-    if calc_all_spikes is True:
-        half_width_all_spikes, peak_to_peak_all_spikes = \
-            calculate_spike_widths(all_spikes_list, stime)
-        return half_width_mean, peak_to_peak_mean, average_firing_rate,\
-            half_width_all_spikes, peak_to_peak_all_spikes
-    else:
-        return half_width_mean, peak_to_peak_mean, average_firing_rate
+        half_width_list.append(np.array(half_width(wf, stime)))
+        peak_to_peak_list.append(np.array(peak_to_trough(wf)))
+
+    return half_width_mean, peak_to_peak_mean, average_firing_rate
 
 
-def calculate_spike_widths(spikes_list, stime):
-    """Calculates full-width half-maximum (half width) and minimum-to-maximum
+def half_width(wf, times):
+    """Calculates full-width half-maximum (half width) for spikes.
+
+    Parameters
+    ----------
+    wf : array
+        Spike waveform
+    times : array
+        array of times for when the spike waveform is measured
+
+    Returns
+    ----------
+    half_width : float
+        full-width half-maximum
+    """
+    index_min = np.argmin(wf)
+    half_amplitude = wf[index_min] * 0.5
+    half_wf = np.abs(wf - half_amplitude)
+    # there might be multiple intersections, we take the closest to the peak
+    p1_idxs, = np.where(half_wf[:index_min] < 1e-5)
+    p1 = np.max(p1_idxs)
+
+    p2_idxs, = np.where(half_wf[index_min:] < 1e-5)
+    p2 = index_min + np.min(p2_idxs)
+    return times[p2] - times[p1]
+
+
+def peak_to_trough(wf, times):
+    """Calculates minimum-to-maximum
     peak width (peak-to-peak width) for spikes.
 
     Parameters
     ----------
-    spikes_list : list of arrays
-        list of arrays with spike waveforms
-    stime : array
-        array of times for when the spikes waveform is measured
+    wf : array
+        Spike waveform
+    times : array
+        array of times for when the spike waveform is measured
 
     Returns
     ----------
-    half_width_list : list of arrays
-        full-width half-maximum (in ms)
-    peak_to_peak_list : list of arrays
-        minimum-to-maximum peak width (in ms)
+    peak_to_trough : float
+        minimum-to-maximum peak width
     """
-    half_width_list = []
-    peak_to_peak_list = []
-    for wf in spikes_list:
-        half_width = []
-        peak_to_peak = []
-        index_max_amplitude = np.argmin(wf, axis=1)
-        value_half_amplitude = (wf.min(axis=1) * 0.5)[:, np.newaxis]
-        new_wf = np.abs(wf - value_half_amplitude)
-        for s in range(len(wf)):
-            index_min = index_max_amplitude[s]
-            if index_min == 0:
-                pass
-            else:
-                p1 = np.argmin(new_wf[s, :index_min])
-                p2 = index_min + np.argmin(new_wf[s, index_min:])
-                half_width.append(stime[p2] - stime[p1])
-                index_max = index_min + np.argmax(wf[s, index_min:])
-                peak_to_peak.append(stime[index_max] - stime[index_min])
-        half_width_list.append(np.array(half_width))
-        peak_to_peak_list.append(np.array(peak_to_peak))
-    return half_width_list, peak_to_peak_list
+    index_min = np.argmin(wf)
+    index_max = index_min + np.argmax(wf[index_min:])
+    return times[index_max] - times[index_min]
 
 
 def calculate_average_firing_rate(sptrs):
