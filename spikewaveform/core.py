@@ -29,8 +29,8 @@ def calculate_waveform_features(sptrs):
 
     average_firing_rate = calculate_average_firing_rate(sptrs)
 
-    times = np.arange(sptrs[0].waveforms.shape[2], dtype=np.float32) /\
-        sptrs[0].sampling_rate
+    times = np.arange(
+        sptrs[0].waveforms.shape[2], dtype=np.float32) / sptrs[0].sampling_rate
 
     half_width_list = []
     peak_to_peak_list = []
@@ -104,6 +104,8 @@ def peak_to_trough(wf, times):
     throughs,_ = scipy.signal.find_peaks(-wf)
     index_min = throughs[np.argmin(wf[throughs])]
     peaks,_ = scipy.signal.find_peaks(wf[index_min:])
+    if len(peaks) == 0:
+        return np.nan
     index_max = np.min(peaks) + index_min # first peak after through
     return times[index_max] - times[index_min]
 
