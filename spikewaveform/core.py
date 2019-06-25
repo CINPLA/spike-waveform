@@ -1,5 +1,6 @@
 import numpy as np
-import scipy
+from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 from scipy.cluster.vq import kmeans, vq
 
 
@@ -66,7 +67,7 @@ def half_width(wf, times):
     half_width : float
         full-width half-maximum
     """
-    throughs,_ = scipy.signal.find_peaks(-wf)
+    throughs,_ = find_peaks(-wf)
     index_min = throughs[np.argmin(wf[throughs])]
     half_amplitude = wf[index_min] * 0.5
     half_wf = wf - half_amplitude
@@ -101,13 +102,28 @@ def peak_to_trough(wf, times):
     peak_to_trough : float
         minimum-to-maximum peak width
     """
-    throughs,_ = scipy.signal.find_peaks(-wf)
+    n = 5
+    throughs,_ = find_peaks(-wf)
     index_min = throughs[np.argmin(wf[throughs])]
-    peaks,_ = scipy.signal.find_peaks(wf[index_min:])
+    peaks,_ = find_peaks(wf[index_min:])
     if len(peaks) == 0:
         return np.nan
     index_max = np.min(peaks) + index_min # first peak after through
-    return times[index_max] - times[index_min]
+
+    times_1 = times[index_min - n:index_min + n]
+    wf_1 = wf[index_min - n:index_min + n]
+    f1 = interp1d(times_1, wf_1, kind='cubic')
+    t1 = np.linspace(times_1.min(), times_1.max(), 1000)
+
+    times_2 = times[index_max - n:index_max + n]
+    wf_2 = wf[index_max - n:index_max + n]
+    f2 = interp1d(times_2, wf_2, kind='cubic')
+    t2 = np.linspace(times_2.min(), times_2.max(), 1000)
+
+    t_through = t1[np.argmin(f1(t1))]
+    t_peak = t2[np.argmax(f2(t2))]
+
+    return t_peak - t_through
 
 
 def calculate_average_firing_rate(sptrs):
