@@ -58,9 +58,11 @@ def test_calculate_waveform_features_peak_to_peak_mean():
                       sampling_rate=30000 * pq.Hz)
     sptrs = [sptr]
     computed_peak_to_peak_mean = calculate_waveform_features(sptrs)[1]
-    expected_peak_to_peak_mean = 0.0001473807 # s
-    success = abs(computed_peak_to_peak_mean[0] -
-                  expected_peak_to_peak_mean) < 1e-10
+    expected_peak_to_peak_mean = [0.00016265 0.00014726] # s
+    success = (abs(computed_peak_to_peak_mean[0][0] -
+                  expected_peak_to_peak_mean[0]) < 1e-10 and
+              abs(computed_peak_to_peak_mean[0][1] -
+                            expected_peak_to_peak_mean[1]) < 1e-10)
     msg = 'Computed peak-to-peak width for mean spike != expected'
     print(computed_peak_to_peak_mean[0])
     assert success, msg

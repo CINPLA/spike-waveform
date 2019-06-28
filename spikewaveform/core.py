@@ -33,23 +33,20 @@ def calculate_waveform_features(sptrs):
     times = np.arange(
         sptrs[0].waveforms.shape[2], dtype=np.float32) / sptrs[0].sampling_rate
 
-    half_width_list = []
-    peak_to_peak_list = []
-    for i in range(len(sptrs)):
-        mean_wf = np.mean(sptrs[i].waveforms, axis=0).magnitude
-        max_amplitude_channel = np.argmin(mean_wf.min(axis=1))
-        wf = mean_wf[max_amplitude_channel, :]
+    half_widths = []
+    peak_to_throughs = []
+    for sptr in sptrs:
+        mean_wf = np.mean(sptr.waveforms, axis=0).magnitude
+        half_width_ch = []
+        peak_to_through_ch = []
+        for ch in range(mean_wf.shape[0]):
+            wf = mean_wf[ch, :]
+            half_width_ch.append(np.array(half_width(wf, times)))
+            peak_to_through_ch.append(np.array(peak_to_trough(wf, times)))
+        half_widths.append(half_width_ch)
+        peak_to_throughs.append(peak_to_through_ch)
 
-        half_width_list.append(np.array(half_width(wf, times)))
-        peak_to_peak_list.append(np.array(peak_to_trough(wf, times)))
-
-    return np.array(half_width_list), np.array(peak_to_peak_list), np.array(average_firing_rate)
-
-
-def interpolate(x, x0, x1, y0, y1):
-    p = sorted([x0, x1])
-    assert p[0] < x and x < p[1], 'x not between x0 and x1'
-    return y0 + (x - x0) * ((y1 - y0) / (x1 - x0))
+    return np.array(half_widths), np.array(peak_to_throughs), np.array(average_firing_rate)
 
 
 def half_width(wf, times):
@@ -68,25 +65,29 @@ def half_width(wf, times):
         full-width half-maximum
     """
     throughs,_ = find_peaks(-wf)
+    if len(throughs) == 0:
+        return np.nan
     index_min = throughs[np.argmin(wf[throughs])]
     half_amplitude = wf[index_min] * 0.5
     half_wf = wf - half_amplitude
-    # there might be multiple intersections, we take the closest to the peak
+    # there might be multiple intersections, we take the closest to the through
     shifts_1 = np.diff(half_wf[:index_min] > 0)
     shifts_1_idxs, = np.where(shifts_1 == 1)
+    if len(shifts_1_idxs) == 0:
+        return np.nan
     p1 = shifts_1_idxs.max()
 
-    t1 = interpolate(0, half_wf[p1], half_wf[p1 + 1], times[p1], times[p1 + 1])
+    t1 =  interp1d([half_wf[p1], half_wf[p1 + 1]], [times[p1], times[p1 + 1]])(0)
 
     shifts_2 = np.diff(half_wf[index_min:] > 0)
     shifts_2_idxs, = np.where(shifts_2 == 1)
     p2 = shifts_2_idxs.min() + index_min
 
-    t2 = interpolate(0, half_wf[p2], half_wf[p2 + 1], times[p2], times[p2 + 1])
+    t2 =  interp1d([half_wf[p2], half_wf[p2 + 1]], [times[p2], times[p2 + 1]])(0)
     return t2 - t1
 
 
-def peak_to_trough(wf, times):
+def peak_to_trough(wf, times, n_interp=10000):
     """Calculates minimum-to-maximum
     peak width (peak-to-peak width) for spikes.
 
@@ -102,28 +103,20 @@ def peak_to_trough(wf, times):
     peak_to_trough : float
         minimum-to-maximum peak width
     """
-    n = 5
+    f = interp1d(times, wf, kind='cubic')
+    t = np.linspace(times.min(), times.max(), n_interp)
+    wf = f(t)
     throughs,_ = find_peaks(-wf)
+    if len(throughs) == 0:
+        return np.nan
     index_min = throughs[np.argmin(wf[throughs])]
     peaks,_ = find_peaks(wf[index_min:])
     if len(peaks) == 0:
         return np.nan
     index_max = np.min(peaks) + index_min # first peak after through
 
-    times_1 = times[index_min - n:index_min + n]
-    wf_1 = wf[index_min - n:index_min + n]
-    f1 = interp1d(times_1, wf_1, kind='cubic')
-    t1 = np.linspace(times_1.min(), times_1.max(), 1000)
 
-    times_2 = times[index_max - n:index_max + n]
-    wf_2 = wf[index_max - n:index_max + n]
-    f2 = interp1d(times_2, wf_2, kind='cubic')
-    t2 = np.linspace(times_2.min(), times_2.max(), 1000)
-
-    t_through = t1[np.argmin(f1(t1))]
-    t_peak = t2[np.argmax(f2(t2))]
-
-    return t_peak - t_through
+    return t[index_max] - t[index_min]
 
 
 def calculate_average_firing_rate(sptrs):
