@@ -1,10 +1,11 @@
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, resample_poly
 from scipy.interpolate import interp1d
 from scipy.cluster.vq import kmeans, vq
+import quantities as pq
 
 
-def calculate_waveform_features(sptrs):
+def calculate_waveform_features(sptrs, upsample=1):
     """Calculates waveform features for spiketrains; full-width half-maximum
     (half width) and minimum-to-maximum peak width (peak-to-peak width) for
     mean spike, and average firing rate.
@@ -30,13 +31,19 @@ def calculate_waveform_features(sptrs):
 
     average_firing_rate = calculate_average_firing_rate(sptrs)
 
-    times = np.arange(
-        sptrs[0].waveforms.shape[2], dtype=np.float32) / sptrs[0].sampling_rate
-
     half_widths = []
     peak_to_throughs = []
-    for sptr in sptrs:
-        mean_wf = np.mean(sptr.waveforms, axis=0).magnitude
+    for i, sptr in enumerate(sptrs):
+        if isinstance(sptr.waveforms, pq.Quantity):
+            mean_wf = np.mean(sptr.waveforms, axis=0).magnitude
+        else:
+            mean_wf = np.mean(sptr.waveforms, axis=0)
+        if upsample > 1:
+            mean_wf = resample_poly(mean_wf, up=upsample, down=1, axis=1)
+
+        if i == 0:
+            times = np.arange(mean_wf.shape[1], dtype=np.float32) / sptr.sampling_rate
+
         half_width_ch = []
         peak_to_through_ch = []
         for ch in range(mean_wf.shape[0]):
