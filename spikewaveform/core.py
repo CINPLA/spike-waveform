@@ -49,6 +49,36 @@ def calculate_waveform_features(sptrs):
     return np.array(half_widths), np.array(peak_to_throughs), np.array(average_firing_rate)
 
 
+def calculate_waveform_features_from_template(template, sampling_rate):
+    """Calculates waveform features for spiketrains; full-width half-maximum
+    (half width) and minimum-to-maximum peak width (peak-to-peak width) for
+    mean spike, and average firing rate.
+
+    Parameters
+    ----------
+    template : array
+        mean waveform
+
+    Returns
+    ----------
+    half_width_mean : array of floats
+        full-width half-maximum (in ms) for mean spike of each spiketrain
+    peak_to_peak_mean : array of floats
+        minimum-to-maximum peak width (in ms) for mean spike of each spiketrain
+    """
+
+    times = np.arange(template.shape[1], dtype=np.float32) / sampling_rate
+
+    half_width_ch = []
+    peak_to_through_ch = []
+    for ch in range(template.shape[0]):
+        wf = template[ch, :]
+        half_width_ch.append(np.array(half_width(wf, times)))
+        peak_to_through_ch.append(np.array(peak_to_trough(wf, times)))
+
+    return np.array(half_width_ch), np.array(peak_to_through_ch)
+
+
 def half_width(wf, times):
     """Calculates full-width half-maximum (half width) for spikes.
 
