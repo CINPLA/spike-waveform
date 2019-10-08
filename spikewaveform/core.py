@@ -111,6 +111,8 @@ def half_width(wf, times):
 
     shifts_2 = np.diff(half_wf[index_min:] > 0)
     shifts_2_idxs, = np.where(shifts_2 == 1)
+    if len(shifts_2_idxs) == 0:
+        return np.nan
     p2 = shifts_2_idxs.min() + index_min
 
     t2 =  interp1d([half_wf[p2], half_wf[p2 + 1]], [times[p2], times[p2 + 1]])(0)
